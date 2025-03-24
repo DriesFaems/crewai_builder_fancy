@@ -8,6 +8,10 @@ from datetime import datetime
 if 'download_content' not in st.session_state:
     st.session_state.download_content = None
 
+# Disable ChromaDB and its dependencies
+os.environ["CHROMA_DISABLE_SQLITE"] = "1"
+os.environ["CHROMA_DISABLE_EMBEDDINGS"] = "1"
+
 def handle_crew_creation(agent_configs, human_input, groq_api_key):
     if not groq_api_key:
         st.error("Please enter your GROQ API key in the sidebar!")
@@ -112,7 +116,8 @@ def create_and_run_crew(agent_configs, human_input, GROQ_LLM):
                 allow_delegation=False,
                 max_iter=5,
                 memory=False,  # Disable memory to avoid SQLite3 issues
-                tools=[]  # Disable tools to reduce dependencies
+                tools=[],  # Disable tools to reduce dependencies
+                embedding_function=None  # Disable embeddings to avoid ChromaDB
             )
             agentlist.append(agent)
             
