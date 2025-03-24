@@ -1,33 +1,29 @@
 import os
 import streamlit as st
-from crewai import Crew, Agent, Task, Process, LLM
+from agents import Agent, Runner, OpenAIChatCompletionsModel, AsyncOpenAI
 import pandas as pd
 from datetime import datetime
+import asyncio
 
 # Add this near the top of the file, after the imports
 if 'download_content' not in st.session_state:
     st.session_state.download_content = None
 
-# Disable ChromaDB and its dependencies
-os.environ["CHROMA_DISABLE_SQLITE"] = "1"
-os.environ["CHROMA_DISABLE_EMBEDDINGS"] = "1"
-
-def handle_crew_creation(agent_configs, human_input, groq_api_key):
+async def handle_crew_creation(agent_configs, human_input, groq_api_key):
     if not groq_api_key:
         st.error("Please enter your GROQ API key in the sidebar!")
         return
 
     try:
         with st.spinner("Creating and running your crew..."):
-            os.environ["GROQ_API_KEY"] = groq_api_key
+            os.environ["OPENAI_API_KEY"] = groq_api_key
             
-            GROQ_LLM = LLM(
-                model="qroq/llama-3.1-8b-instant",
-                temperature=0.7,
-                max_tokens=1000
+            model = OpenAIChatCompletionsModel(
+                model="llama-3.1-8b-instant",
+                openai_client=AsyncOpenAI(base_url="https://api.groq.com/openai/v1")
             )
 
-            tasklist, results = create_and_run_crew(agent_configs, human_input, GROQ_LLM)
+            tasklist, results = await create_and_run_crew(agent_configs, human_input, model)
             
             if tasklist is None:
                 return
@@ -40,21 +36,21 @@ def handle_crew_creation(agent_configs, human_input, groq_api_key):
                 results_tab1, results_tab2 = st.tabs(["Detailed Output", "Summary"])
                 
                 with results_tab1:
-                    for i, task in enumerate(tasklist):
+                    for i, result in enumerate(results):
                         with st.expander(f"Agent {i+1}: {agent_configs[i]['name']}", expanded=True):
                             st.markdown("**Task:**")
-                            st.write(task.description)
+                            st.write(agent_configs[i]['instructions'])
                             st.markdown("**Output:**")
-                            st.write(task.output.exported_output)
+                            st.write(result.final_output)
                 
                 with results_tab2:
                     # Create a summary DataFrame
                     summary_data = []
-                    for i, task in enumerate(tasklist):
+                    for i, result in enumerate(results):
                         summary_data.append({
                             "Agent": f"{i+1}: {agent_configs[i]['name']}",
-                            "Role": agent_configs[i]['role'],
-                            "Output": task.output.exported_output
+                            "Instructions": agent_configs[i]['instructions'],
+                            "Output": result.final_output
                         })
                     summary_df = pd.DataFrame(summary_data)
                     st.dataframe(summary_df)
@@ -74,11 +70,7 @@ Agent Configurations:
 """
             for i, config in enumerate(agent_configs):
                 combined_text += f"\nAgent {i+1}: {config['name']}\n"
-                combined_text += f"Role: {config['role']}\n"
-                combined_text += f"Goal: {config['goal']}\n"
-                combined_text += f"Backstory: {config['backstory']}\n"
-                combined_text += f"Task: {config['task']}\n"
-                combined_text += f"Expected Output: {config['output']}\n"
+                combined_text += f"Instructions:\n{config['instructions']}\n"
                 combined_text += "-" * 50 + "\n"
 
             combined_text += f"""
@@ -89,10 +81,9 @@ Timestamp: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 Results by Agent:
 """
-            for i, task in enumerate(tasklist):
+            for i, result in enumerate(results):
                 combined_text += f"\nAgent {i+1}: {agent_configs[i]['name']}\n"
-                combined_text += f"Role: {agent_configs[i]['role']}\n"
-                combined_text += f"Output:\n{task.output.exported_output}\n"
+                combined_text += f"Output:\n{result.final_output}\n"
                 combined_text += "-" * 50 + "\n"
             
             # Store in session state
@@ -101,51 +92,28 @@ Results by Agent:
         st.error(f"An error occurred while creating the crew: {str(e)}")
         st.error("Please check your GROQ API key and try again.")
 
-def create_and_run_crew(agent_configs, human_input, GROQ_LLM):
+async def create_and_run_crew(agent_configs, human_input, model):
     agentlist = []
-    tasklist = []
+    results = []
     
     for config in agent_configs:
         try:
             agent = Agent(
-                role=config["role"],
-                goal=config["goal"],
-                backstory=config["backstory"],
-                llm=GROQ_LLM,
-                verbose=True,
-                allow_delegation=False,
-                max_iter=5,
-                memory=False,  # Disable memory to avoid SQLite3 issues
-                tools=[],  # Disable tools to reduce dependencies
-                embedding_function=None  # Disable embeddings to avoid ChromaDB
+                name=config["name"],
+                instructions=config["instructions"],
+                model=model
             )
             agentlist.append(agent)
             
-            task = Task(
-                description=config["task"] + "\n\nAdditional Context: " + human_input,
-                expected_output=config["output"],
-                agent=agent
-            )
-            tasklist.append(task)
+            # Run the agent with the task
+            result = await Runner.run(agent, config["instructions"] + "\n\nAdditional Context: " + human_input)
+            results.append(result)
+            
         except Exception as e:
             st.error(f"Error creating agent: {str(e)}")
             return None, None
 
-    try:
-        crew = Crew(
-            agents=agentlist,
-            tasks=tasklist,
-            process=Process.sequential,
-            full_output=True,
-            share_crew=False,
-        )
-
-        # Kick off the crew's work
-        results = crew.kickoff()
-        return tasklist, results
-    except Exception as e:
-        st.error(f"Error running crew: {str(e)}")
-        return None, None
+    return agentlist, results
 
 # Set page config
 st.set_page_config(
@@ -233,28 +201,22 @@ with tab2:
     agent_configs = []
     for i in range(number_of_agents):
         with st.expander(f"Agent {i+1} Configuration", expanded=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                agent_name = st.text_input(f"Name", key=f"name_{i}")
-                role = st.text_input(f"Role", key=f"role_{i}")
-                goal = st.text_input(f"Goal", key=f"goal_{i}")
-            with col2:
-                backstory = st.text_area(f"Backstory", key=f"backstory_{i}")
-                task_description = st.text_area(f"Task Description", key=f"task_{i}")
-                expected_output = st.text_area(f"Expected Output", key=f"output_{i}")
+            agent_name = st.text_input(f"Name", key=f"name_{i}")
+            instructions = st.text_area(
+                f"Instructions",
+                key=f"instructions_{i}",
+                help="Provide the complete instructions for this agent, including its role, goal, backstory, and expected output format.",
+                height=200
+            )
             
             agent_configs.append({
                 "name": agent_name,
-                "role": role,
-                "goal": goal,
-                "backstory": backstory,
-                "task": task_description,
-                "output": expected_output
+                "instructions": instructions
             })
 
     # Create Crew button (moved inside tab2)
     if st.button('🚀 Create Crew', type="primary"):
-        handle_crew_creation(agent_configs, human_input, groq_api_key)
+        asyncio.run(handle_crew_creation(agent_configs, human_input, groq_api_key))
 
 # Download tab content (moved outside of results container)
 with tab3:
