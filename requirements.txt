@@ -1,15 +1,25 @@
+# Core dependencies
 groq>=0.4.0
 streamlit>=1.31.0
 pandas>=2.2.0
 python-dotenv>=1.0.0
+
+# CrewAI and related packages
 crewai>=0.28.8
 crewai-tools>=0.0.14
 langchain>=0.1.0
 langchain-community>=0.0.10
 langchain-groq>=0.0.3
-requests>=2.31.0
+
+# Database and storage
+chromadb>=0.4.22
 pysqlite3-binary>=0.5.1
 faiss-cpu>=1.7.4
+
+# Additional utilities
+requests>=2.31.0
 openpyxl>=3.1.2
 setuptools>=69.0.3
+typing-extensions>=4.8.0
+pydantic>=2.5.2
 

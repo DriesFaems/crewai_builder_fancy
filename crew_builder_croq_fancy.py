@@ -2,8 +2,6 @@ from groq import Groq
 import streamlit as st
 import os
 from crewai import Crew, Agent, Task, Process
-import os
-from crewai import Crew, Process
 from langchain_groq import ChatGroq
 import pandas as pd
 from datetime import datetime
