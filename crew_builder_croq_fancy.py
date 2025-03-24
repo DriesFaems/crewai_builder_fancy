@@ -24,48 +24,51 @@ def handle_crew_creation(agent_configs, human_input, groq_api_key):
         st.error("Please enter your GROQ API key in the sidebar!")
         return
 
-    with st.spinner("Creating and running your crew..."):
-        os.environ["GROQ_API_KEY"] = groq_api_key
-        client = Groq()
+    try:
+        with st.spinner("Creating and running your crew..."):
+            os.environ["GROQ_API_KEY"] = groq_api_key
+            client = Groq()
 
-        GROQ_LLM = ChatGroq(
-            model="llama-3.1-8b-instant"
-        )
+            GROQ_LLM = ChatGroq(
+                model="llama-3.1-8b-instant",
+                temperature=0.7,
+                max_tokens=1000
+            )
 
-        tasklist, results = create_and_run_crew(agent_configs, human_input, GROQ_LLM)
-        
-        if tasklist is None:
-            return
-
-        # Display results in an organized way
-        with results_container:
-            st.markdown('<h3 class="section-header">Results</h3>', unsafe_allow_html=True)
+            tasklist, results = create_and_run_crew(agent_configs, human_input, GROQ_LLM)
             
-            # Create tabs for different views
-            results_tab1, results_tab2 = st.tabs(["Detailed Output", "Summary"])
-            
-            with results_tab1:
-                for i, task in enumerate(tasklist):
-                    with st.expander(f"Agent {i+1}: {agent_configs[i]['name']}", expanded=True):
-                        st.markdown("**Task:**")
-                        st.write(task.description)
-                        st.markdown("**Output:**")
-                        st.write(task.output.exported_output)
-            
-            with results_tab2:
-                # Create a summary DataFrame
-                summary_data = []
-                for i, task in enumerate(tasklist):
-                    summary_data.append({
-                        "Agent": f"{i+1}: {agent_configs[i]['name']}",
-                        "Role": agent_configs[i]['role'],
-                        "Output": task.output.exported_output
-                    })
-                summary_df = pd.DataFrame(summary_data)
-                st.dataframe(summary_df)
+            if tasklist is None:
+                return
 
-        # Generate the report content
-        combined_text = f"""AUTONOMOUS CREW BUILDER - COMPLETE REPORT
+            # Display results in an organized way
+            with results_container:
+                st.markdown('<h3 class="section-header">Results</h3>', unsafe_allow_html=True)
+                
+                # Create tabs for different views
+                results_tab1, results_tab2 = st.tabs(["Detailed Output", "Summary"])
+                
+                with results_tab1:
+                    for i, task in enumerate(tasklist):
+                        with st.expander(f"Agent {i+1}: {agent_configs[i]['name']}", expanded=True):
+                            st.markdown("**Task:**")
+                            st.write(task.description)
+                            st.markdown("**Output:**")
+                            st.write(task.output.exported_output)
+                
+                with results_tab2:
+                    # Create a summary DataFrame
+                    summary_data = []
+                    for i, task in enumerate(tasklist):
+                        summary_data.append({
+                            "Agent": f"{i+1}: {agent_configs[i]['name']}",
+                            "Role": agent_configs[i]['role'],
+                            "Output": task.output.exported_output
+                        })
+                    summary_df = pd.DataFrame(summary_data)
+                    st.dataframe(summary_df)
+
+            # Generate the report content
+            combined_text = f"""AUTONOMOUS CREW BUILDER - COMPLETE REPORT
 {'='*50}
 
 PART 1: CREW CONFIGURATION
@@ -77,16 +80,16 @@ Additional Context:
 
 Agent Configurations:
 """
-        for i, config in enumerate(agent_configs):
-            combined_text += f"\nAgent {i+1}: {config['name']}\n"
-            combined_text += f"Role: {config['role']}\n"
-            combined_text += f"Goal: {config['goal']}\n"
-            combined_text += f"Backstory: {config['backstory']}\n"
-            combined_text += f"Task: {config['task']}\n"
-            combined_text += f"Expected Output: {config['output']}\n"
-            combined_text += "-" * 50 + "\n"
+            for i, config in enumerate(agent_configs):
+                combined_text += f"\nAgent {i+1}: {config['name']}\n"
+                combined_text += f"Role: {config['role']}\n"
+                combined_text += f"Goal: {config['goal']}\n"
+                combined_text += f"Backstory: {config['backstory']}\n"
+                combined_text += f"Task: {config['task']}\n"
+                combined_text += f"Expected Output: {config['output']}\n"
+                combined_text += "-" * 50 + "\n"
 
-        combined_text += f"""
+            combined_text += f"""
 {'='*50}
 PART 2: CREW RESULTS
 {'='*50}
@@ -94,14 +97,17 @@ Timestamp: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 Results by Agent:
 """
-        for i, task in enumerate(tasklist):
-            combined_text += f"\nAgent {i+1}: {agent_configs[i]['name']}\n"
-            combined_text += f"Role: {agent_configs[i]['role']}\n"
-            combined_text += f"Output:\n{task.output.exported_output}\n"
-            combined_text += "-" * 50 + "\n"
-        
-        # Store in session state
-        st.session_state.download_content = combined_text
+            for i, task in enumerate(tasklist):
+                combined_text += f"\nAgent {i+1}: {agent_configs[i]['name']}\n"
+                combined_text += f"Role: {agent_configs[i]['role']}\n"
+                combined_text += f"Output:\n{task.output.exported_output}\n"
+                combined_text += "-" * 50 + "\n"
+            
+            # Store in session state
+            st.session_state.download_content = combined_text
+    except Exception as e:
+        st.error(f"An error occurred while creating the crew: {str(e)}")
+        st.error("Please check your GROQ API key and try again.")
 
 def create_and_run_crew(agent_configs, human_input, GROQ_LLM):
     agentlist = []
