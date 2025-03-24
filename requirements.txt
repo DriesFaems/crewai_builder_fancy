@@ -1,6 +1,14 @@
-groq>=0.4.0
-crewai>=0.11.0
-langchain-groq>=0.0.3
-pandas>=2.2.0
-python-dotenv>=1.0.0
-sqlite3 >= 3.35.0 
+crewai==0.28.8
+crewai-tools
+langchain_openai
+langchain
+langchain_community
+requests
+streamlit
+pysqlite3-binary
+faiss-cpu
+groq
+langchain-groq
+openpyxl
+setuptools
+
