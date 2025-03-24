@@ -149,7 +149,7 @@ with tab2:
                         verbose=True,
                         allow_delegation=False,
                         max_iter=5,
-                        memory=True
+                        memory=False  # Disable memory to avoid SQLite3 issues
                     )
                     agentlist.append(agent)
                     
