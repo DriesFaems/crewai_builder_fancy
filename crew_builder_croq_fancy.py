@@ -1,6 +1,15 @@
+import os
+import sys
+import sqlite3
+from pathlib import Path
+
+# Set SQLite3 path
+sqlite3_path = Path(sys.executable).parent / 'sqlite3.dll'
+if sqlite3_path.exists():
+    os.environ['SQLITE3_DLL_PATH'] = str(sqlite3_path)
+
 from groq import Groq
 import streamlit as st
-import os
 from crewai import Crew, Agent, Task, Process
 from langchain_groq import ChatGroq
 import pandas as pd
