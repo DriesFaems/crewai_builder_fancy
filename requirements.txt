@@ -2,4 +2,5 @@ groq>=0.4.0
 crewai>=0.11.0
 langchain-groq>=0.0.3
 pandas>=2.2.0
-python-dotenv>=1.0.0 
+python-dotenv>=1.0.0
+sqlite3 >= 3.35.0 
