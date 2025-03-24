@@ -1,13 +1,4 @@
 import os
-import sys
-import sqlite3
-from pathlib import Path
-
-# Set SQLite3 path
-sqlite3_path = Path(sys.executable).parent / 'sqlite3.dll'
-if sqlite3_path.exists():
-    os.environ['SQLITE3_DLL_PATH'] = str(sqlite3_path)
-
 import streamlit as st
 from crewai import Crew, Agent, Task, Process, LLM
 import pandas as pd

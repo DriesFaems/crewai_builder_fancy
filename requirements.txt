@@ -1,9 +1,3 @@
 crewai
-# Additional utilities
-requests==2.31.0
-openpyxl==3.1.2
-setuptools==69.0.3
-typing-extensions==4.8.0
-pydantic==2.5.2
-numpy==1.24.0
+
 
