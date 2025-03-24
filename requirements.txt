@@ -1,20 +1,4 @@
-# Core dependencies
-groq==0.4.0
-streamlit==1.31.0
-pandas==2.2.0
-python-dotenv==1.0.0
-
-# CrewAI and related packages
-crewai==0.28.8
-langchain-core>=0.3.47,<1.0.0
-langchain>=0.1.10
-langchain-community>=0.0.25,<0.1
-langchain-groq==0.3.1
-
-# Database and storage
-chromadb==0.3.29
-faiss-cpu==1.7.4
-
+crewai
 # Additional utilities
 requests==2.31.0
 openpyxl==3.1.2

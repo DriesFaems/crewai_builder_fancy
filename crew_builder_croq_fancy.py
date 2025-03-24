@@ -8,10 +8,8 @@ sqlite3_path = Path(sys.executable).parent / 'sqlite3.dll'
 if sqlite3_path.exists():
     os.environ['SQLITE3_DLL_PATH'] = str(sqlite3_path)
 
-from groq import Groq
 import streamlit as st
-from crewai import Crew, Agent, Task, Process
-from langchain_groq import ChatGroq
+from crewai import Crew, Agent, Task, Process, LLM
 import pandas as pd
 from datetime import datetime
 
@@ -27,10 +25,9 @@ def handle_crew_creation(agent_configs, human_input, groq_api_key):
     try:
         with st.spinner("Creating and running your crew..."):
             os.environ["GROQ_API_KEY"] = groq_api_key
-            client = Groq()
-
-            GROQ_LLM = ChatGroq(
-                model="llama-3.1-8b-instant",
+            
+            GROQ_LLM = LLM(
+                model="qroq/llama-3.1-8b-instant",
                 temperature=0.7,
                 max_tokens=1000
             )
