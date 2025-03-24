@@ -126,116 +126,7 @@ with tab2:
 
     # Create Crew button (moved inside tab2)
     if st.button('🚀 Create Crew', type="primary"):
-        if not groq_api_key:
-            st.error("Please enter your GROQ API key in the sidebar!")
-        else:
-            with st.spinner("Creating and running your crew..."):
-                os.environ["GROQ_API_KEY"] = groq_api_key
-                client = Groq()
-
-                GROQ_LLM = ChatGroq(
-                    model="llama-3.1-8b-instant"
-                )
-
-                agentlist = []
-                tasklist = []
-                
-                for config in agent_configs:
-                    agent = Agent(
-                        role=config["role"],
-                        goal=config["goal"],
-                        backstory=config["backstory"],
-                        llm=GROQ_LLM,
-                        verbose=True,
-                        allow_delegation=False,
-                        max_iter=5,
-                        memory=False  # Disable memory to avoid SQLite3 issues
-                    )
-                    agentlist.append(agent)
-                    
-                    task = Task(
-                        description=config["task"] + "\n\nAdditional Context: " + human_input,
-                        expected_output=config["output"],
-                        agent=agent
-                    )
-                    tasklist.append(task)
-
-                crew = Crew(
-                    agents=agentlist,
-                    tasks=tasklist,
-                    process=Process.sequential,
-                    full_output=True,
-                    share_crew=False,
-                )
-
-                # Kick off the crew's work
-                results = crew.kickoff()
-
-                # Display results in an organized way
-                with results_container:
-                    st.markdown('<h3 class="section-header">Results</h3>', unsafe_allow_html=True)
-                    
-                    # Create tabs for different views
-                    results_tab1, results_tab2 = st.tabs(["Detailed Output", "Summary"])
-                    
-                    with results_tab1:
-                        for i, task in enumerate(tasklist):
-                            with st.expander(f"Agent {i+1}: {agent_configs[i]['name']}", expanded=True):
-                                st.markdown("**Task:**")
-                                st.write(task.description)
-                                st.markdown("**Output:**")
-                                st.write(task.output.exported_output)
-                    
-                    with results_tab2:
-                        # Create a summary DataFrame
-                        summary_data = []
-                        for i, task in enumerate(tasklist):
-                            summary_data.append({
-                                "Agent": f"{i+1}: {agent_configs[i]['name']}",
-                                "Role": agent_configs[i]['role'],
-                                "Output": task.output.exported_output
-                            })
-                        summary_df = pd.DataFrame(summary_data)
-                        st.dataframe(summary_df)
-
-                # Generate the report content
-                combined_text = f"""AUTONOMOUS CREW BUILDER - COMPLETE REPORT
-{'='*50}
-
-PART 1: CREW CONFIGURATION
-{'='*50}
-Timestamp: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-
-Additional Context:
-{human_input}
-
-Agent Configurations:
-"""
-                for i, config in enumerate(agent_configs):
-                    combined_text += f"\nAgent {i+1}: {config['name']}\n"
-                    combined_text += f"Role: {config['role']}\n"
-                    combined_text += f"Goal: {config['goal']}\n"
-                    combined_text += f"Backstory: {config['backstory']}\n"
-                    combined_text += f"Task: {config['task']}\n"
-                    combined_text += f"Expected Output: {config['output']}\n"
-                    combined_text += "-" * 50 + "\n"
-
-                combined_text += f"""
-{'='*50}
-PART 2: CREW RESULTS
-{'='*50}
-Timestamp: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-
-Results by Agent:
-"""
-                for i, task in enumerate(tasklist):
-                    combined_text += f"\nAgent {i+1}: {agent_configs[i]['name']}\n"
-                    combined_text += f"Role: {agent_configs[i]['role']}\n"
-                    combined_text += f"Output:\n{task.output.exported_output}\n"
-                    combined_text += "-" * 50 + "\n"
-                
-                # Store in session state
-                st.session_state.download_content = combined_text
+        handle_crew_creation(agent_configs, human_input, groq_api_key)
 
 # Download tab content (moved outside of results container)
 with tab3:
@@ -268,4 +159,133 @@ with tab3:
             data=st.session_state.download_content,
             file_name=f"crew_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
             mime="text/plain"
-        ) 
+        )
+
+def handle_crew_creation(agent_configs, human_input, groq_api_key):
+    if not groq_api_key:
+        st.error("Please enter your GROQ API key in the sidebar!")
+        return
+
+    with st.spinner("Creating and running your crew..."):
+        os.environ["GROQ_API_KEY"] = groq_api_key
+        client = Groq()
+
+        GROQ_LLM = ChatGroq(
+            model="llama-3.1-8b-instant"
+        )
+
+        tasklist, results = create_and_run_crew(agent_configs, human_input, GROQ_LLM)
+        
+        if tasklist is None:
+            return
+
+        # Display results in an organized way
+        with results_container:
+            st.markdown('<h3 class="section-header">Results</h3>', unsafe_allow_html=True)
+            
+            # Create tabs for different views
+            results_tab1, results_tab2 = st.tabs(["Detailed Output", "Summary"])
+            
+            with results_tab1:
+                for i, task in enumerate(tasklist):
+                    with st.expander(f"Agent {i+1}: {agent_configs[i]['name']}", expanded=True):
+                        st.markdown("**Task:**")
+                        st.write(task.description)
+                        st.markdown("**Output:**")
+                        st.write(task.output.exported_output)
+            
+            with results_tab2:
+                # Create a summary DataFrame
+                summary_data = []
+                for i, task in enumerate(tasklist):
+                    summary_data.append({
+                        "Agent": f"{i+1}: {agent_configs[i]['name']}",
+                        "Role": agent_configs[i]['role'],
+                        "Output": task.output.exported_output
+                    })
+                summary_df = pd.DataFrame(summary_data)
+                st.dataframe(summary_df)
+
+        # Generate the report content
+        combined_text = f"""AUTONOMOUS CREW BUILDER - COMPLETE REPORT
+{'='*50}
+
+PART 1: CREW CONFIGURATION
+{'='*50}
+Timestamp: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+Additional Context:
+{human_input}
+
+Agent Configurations:
+"""
+        for i, config in enumerate(agent_configs):
+            combined_text += f"\nAgent {i+1}: {config['name']}\n"
+            combined_text += f"Role: {config['role']}\n"
+            combined_text += f"Goal: {config['goal']}\n"
+            combined_text += f"Backstory: {config['backstory']}\n"
+            combined_text += f"Task: {config['task']}\n"
+            combined_text += f"Expected Output: {config['output']}\n"
+            combined_text += "-" * 50 + "\n"
+
+        combined_text += f"""
+{'='*50}
+PART 2: CREW RESULTS
+{'='*50}
+Timestamp: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+Results by Agent:
+"""
+        for i, task in enumerate(tasklist):
+            combined_text += f"\nAgent {i+1}: {agent_configs[i]['name']}\n"
+            combined_text += f"Role: {agent_configs[i]['role']}\n"
+            combined_text += f"Output:\n{task.output.exported_output}\n"
+            combined_text += "-" * 50 + "\n"
+        
+        # Store in session state
+        st.session_state.download_content = combined_text
+
+def create_and_run_crew(agent_configs, human_input, GROQ_LLM):
+    agentlist = []
+    tasklist = []
+    
+    for config in agent_configs:
+        try:
+            agent = Agent(
+                role=config["role"],
+                goal=config["goal"],
+                backstory=config["backstory"],
+                llm=GROQ_LLM,
+                verbose=True,
+                allow_delegation=False,
+                max_iter=5,
+                memory=False,  # Disable memory to avoid SQLite3 issues
+                tools=[]  # Disable tools to reduce dependencies
+            )
+            agentlist.append(agent)
+            
+            task = Task(
+                description=config["task"] + "\n\nAdditional Context: " + human_input,
+                expected_output=config["output"],
+                agent=agent
+            )
+            tasklist.append(task)
+        except Exception as e:
+            st.error(f"Error creating agent: {str(e)}")
+            return None, None
+
+    try:
+        crew = Crew(
+            agents=agentlist,
+            tasks=tasklist,
+            process=Process.sequential,
+            full_output=True,
+            share_crew=False,
+        )
+
+        # Kick off the crew's work
+        results = crew.kickoff()
+        return tasklist, results
+    except Exception as e:
+        st.error(f"Error running crew: {str(e)}")
+        return None, None 

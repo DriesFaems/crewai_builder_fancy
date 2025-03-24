@@ -11,7 +11,7 @@ langchain-community==0.0.10
 langchain-groq==0.0.3
 
 # Database and storage
-chromadb==0.4.22
+chromadb==0.3.29
 faiss-cpu==1.7.4
 
 # Additional utilities
