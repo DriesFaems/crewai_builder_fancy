@@ -96,17 +96,20 @@ async def create_and_run_crew(agent_configs, human_input, model):
     agentlist = []
     results = []
     
-    for config in agent_configs:
+    for i in range(len(agent_configs)):
         try:
             agent = Agent(
-                name=config["name"],
-                instructions=config["instructions"],
+                name=agent_configs[i]["name"],
+                instructions=agent_configs[i]["instructions"],
                 model=model
             )
             agentlist.append(agent)
             
             # Run the agent with the task
-            result = await Runner.run(agent, config["instructions"] + "\n\nAdditional Context: " + human_input)
+            if i == 0:  
+                result = await Runner.run(agent, human_input)
+            else:
+                result = await Runner.run(agent, results[i-1].final_output)
             results.append(result)
             
         except Exception as e:
