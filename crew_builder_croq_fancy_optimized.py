@@ -1,6 +1,7 @@
 import os
 import streamlit as st
-from agents import Agent, Runner, OpenAIChatCompletionsModel, AsyncOpenAI
+from agents import Agent, Runner, OpenAIChatCompletionsModel
+from openai import AsyncOpenAI
 import pandas as pd
 from datetime import datetime
 import asyncio
@@ -9,7 +10,7 @@ import asyncio
 if 'download_content' not in st.session_state:
     st.session_state.download_content = None
 
-async def handle_crew_creation(agent_configs, human_input, groq_api_key):
+async def handle_crew_creation(agent_configs, human_input, groq_api_key, selected_model):
     if not groq_api_key:
         st.error("Please enter your GROQ API key in the sidebar!")
         return
@@ -19,7 +20,7 @@ async def handle_crew_creation(agent_configs, human_input, groq_api_key):
             os.environ["OPENAI_API_KEY"] = groq_api_key
             
             model = OpenAIChatCompletionsModel(
-                model="llama-3.1-8b-instant",
+                model=selected_model,
                 openai_client=AsyncOpenAI(base_url="https://api.groq.com/openai/v1")
             )
 
@@ -157,16 +158,29 @@ st.markdown("""
 with st.sidebar:
     st.title("⚙️ Settings")
     groq_api_key = st.text_input('Enter your GROQ API key', type='password')
+    
+    # Model selection
+    selected_model = st.selectbox(
+        'Select Model',
+        options=[
+            'llama-3.3-70b-versatile',
+            'moonshotai/kimi-k2-instruct',
+            'openai/gpt-oss-20b'
+        ],
+        help="Choose the AI model to use for your agents"
+    )
+    
     st.markdown("---")
     st.markdown("""
         ### How to use this app:
         1. Enter your GROQ API key
-        2. Provide the user input
-        3. Go to the Configure Agents tab
-        4. Define the number of agents
-        5. Configure each agent's details
-        6. Click 'Create Crew' to start
-        7. Go to the Download tab to download configuration and results
+        2. Select your preferred model
+        3. Provide the user input
+        4. Go to the Configure Agents tab
+        5. Define the number of agents
+        6. Configure each agent's details
+        7. Click 'Create Crew' to start
+        8. Go to the Download tab to download configuration and results
     """)
 
 # Main content
@@ -219,7 +233,7 @@ with tab2:
 
     # Create Crew button (moved inside tab2)
     if st.button('🚀 Create Crew', type="primary"):
-        asyncio.run(handle_crew_creation(agent_configs, human_input, groq_api_key))
+        asyncio.run(handle_crew_creation(agent_configs, human_input, groq_api_key, selected_model))
 
 # Download tab content (moved outside of results container)
 with tab3:
